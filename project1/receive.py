@@ -5,30 +5,7 @@ from scapy.layers.l2 import ARP, Ether
 
 capNum = 0
 Protocol = int(input("请输入你要查找的protocol：1：ARP协议， 2：IP协议， 3：ICMP协议， 4：TCP协议， 5：UDP协议 \n"))
-# MAC
-# if Protocol == "mac":
-#     dstMac = input("请输入目的MAC地址:")
-#     capNum = 0
-#     print("开始抓包...")
-#
-#
-#     def mac_callback(packet):
-#         if packet[Ether].dst == dstMac:
-#             global capNum
-#             capNum = capNum + 1
-#             ts = "捕获到第" + str(capNum) + "个以太帧"
-#             print(ts)
-#             print("----------------MAC协议解析开始-------------")
-#             print("目的MAC地址  %s" % packet[Ether].dst)
-#             print("源MAC地址  %s" % packet[Ether].src)
-#             print("上层协议类型：%s" % packet[Ether].type)
-#             # print("%s" % hexdump(packet[Ether], dump=True))
-#             print("----------------MAC协议解析结束-------------")
-#
-#
-#     sniff(prn=mac_callback, count=0)
 
-# arp
 if Protocol == 1:
     # ARP_analysis(packet)
     # print('ARP发送')

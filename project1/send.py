@@ -1,13 +1,13 @@
 import struct
 
 import scapy
-from scapy.compat import raw
+from scapy.compat import raw, orb
 from scapy.layers.inet import IP, TCP, ICMP, UDP
 from scapy.layers.l2 import Ether, ARP
 from scapy.sendrecv import send, sendp, sr1
 
 
-# 处理校验和
+# 处理IP校验和
 def IP_headchecksum(IP_head):
     checksum = 0
     headlen = len(IP_head)
@@ -59,16 +59,42 @@ if Protocol == 1:
 if Protocol == 2:
     eth = Ether()
     IP_version = int(input("请输入version: \n"))
-    IP_src = input("请输入源IP地址：\n")
+    IP_src = input("请输入源IP地址：默认地址为127.0.0.1\n")
+    if IP_src is None or len(IP_src) == 0:
+        IP_src = "127.0.0.1"
+    print("源Ip地址为：",IP_src)
     # 127.0.0.1
     IP_dst = input("请输入目的IP地址：\n")
     # 43.138.126.75
-    data = input("要发送的信息：\n")
+    payload = input("请输入负载信息：\n")
     ip = IP(version=IP_version, dst=IP_dst, src=IP_src)
-    eth_ip_data = eth / ip / data
-    eth_ip_data.show()
-    # -todo 计算校验和
-    sendp(eth_ip_data, count=1)
+    ip_packet_payload = ip / payload
+    # eth_ip_data = eth / ip / data
+    # eth_ip_data.show()
+    #  计算校验和
+    ipraw = IP(raw(ip / payload))
+    ipraw.show()
+    checksum_scapy = ipraw[IP].chksum
+    print('添加负载数据后scapy计算的校验和是：%04x(%s)' % (checksum_scapy, str(checksum_scapy)))
+
+    ip_packet_payload.len = 20 + len(payload)
+    ip_packet_payload.chksum = 0
+    ip_packet_payload.ihl = 5
+    ip_packet_payload[IP].show()
+    print("\n 报文长度是：%s" % str(ip_packet_payload.len))
+    y = raw(ip_packet_payload)
+    ipString = "".join("%02x" % orb(y) for y in y)
+    # bytearray.fromhex(string) 返回字节序列bytes,string必须是2个字符的16进制的形式。
+    ipbytes = bytearray.fromhex(ipString)
+    checksum_changed_self = IP_headchecksum(ipbytes[0:ip_packet_payload.ihl * 4])
+    print("改变数据长度后IP首部的校验和是：%04x(%s)" % (checksum_changed_self, str(checksum_changed_self)))
+    if (checksum_scapy == checksum_changed_self):
+        print("正确")
+    else:
+        print('不正确')
+    ip.chksum = checksum_changed_self
+    ip_packet_payload.show()
+    sendp(eth / ip_packet_payload, count=1)
     exit()
 # ICMP报文
 if Protocol == 3:
