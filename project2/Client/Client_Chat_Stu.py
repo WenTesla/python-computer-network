@@ -32,6 +32,8 @@ class Client_GUI():  # 客户端GUI
         self.UserName_label = None
         self.window = window
 
+        # 声明服务器IP
+        self.ServerIP = None
         # 端口
         self.port = 9090
         #
@@ -77,7 +79,7 @@ class Client_GUI():  # 客户端GUI
         self.Message_text = tkinter.Text(self.Message_group, width=50, height=20, stat='disable')
         self.Message_text.pack()
         # 在线用户框（请补充）
-        self.OnlineUser_frame = tkinter.LabelFrame(self.window, text="在线用户", padx=5, pady=5)
+        self.OnlineUser_frame = tkinter.LabelFrame(self.window, text="用户", padx=5, pady=5)
         self.OnlineUser_frame.grid(column=5, row=1, columnspan=5)
         # 树形
         self.User_Group = ttk.Treeview(self.OnlineUser_frame, height=12, show='headings')
@@ -89,7 +91,7 @@ class Client_GUI():  # 客户端GUI
         self.User_Group.bind('<ButtonRelease-1>', self.UserGroup_Click)  # 用于选择用户进行私聊
         self.User_Group.pack()
         # 插入数据
-        self.User_Group.insert('', 'end', values=[1, 2])
+        # self.User_Group.insert('', 'end', values=[1, 2])
         # 信息输入框（请补充）
         self.InputMessage_entry = tkinter.Entry(self.window, bd=4, width=50)
         self.InputMessage_entry.grid(column=0, row=2, columnspan=5)
@@ -97,17 +99,19 @@ class Client_GUI():  # 客户端GUI
         self.PrivateChat_bool = tkinter.Checkbutton(self.window, text='私聊', font=('SimHei', 12), variable=self.var)
         self.PrivateChat_bool.grid(column=5, row=2)
         # 发送信息按钮（请补充）
-        self.ChatSendMessage_button = tkinter.Button(self.window, text='发送消息', font=('SimHei', 12))
+        self.ChatSendMessage_button = tkinter.Button(self.window, text='发送消息', font=('SimHei', 12),
+                                                     command=self.SendMessage)
         self.ChatSendMessage_button.grid(column=6, row=2)
         # 发送文件按钮（请补充）
-        self.ChatSendFile_button = tkinter.Button(self.window, text='发送文件', font=('SimHei', 12))
+        self.ChatSendFile_button = tkinter.Button(self.window, text='发送文件', font=('SimHei', 12),
+                                                  command=self.SendFile)
         self.ChatSendFile_button.grid(column=7, row=2)
         # 数值初始化
         # self.Server_entry.insert(tkinter.END, socket.gethostbyname(socket.gethostname()))
 
     def UserGroup_Click(self, event):  # 获取选择私聊用户名
         try:
-            self.selectUser = self.UserGroup.selection()[0]
+            self.selectUser = self.User_Group.selection()[0]
         except:
             return 0
 
@@ -128,13 +132,17 @@ class Client_GUI():  # 客户端GUI
         self.ServerIP = self.Server_entry.get()  # 获取server ip
         self.Client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # 初始化
         try:
-            self.Client.connect((self.ServerIP, self.port))  # socket连接服务器
+            self.Client.connect(("127.0.0.1", self.port))  # socket连接服务器
             self.name = self.UserName_entry.get()  # 获取注册的用户名
             self.password = self.UserPassword_entry.get()  # 获取注册的密码
             way = 'registered'  # 注册信息
             message = Messages.Message(way=way, Value=self.name + '\t' + self.password).Information()  # 构造注册信息
             self.Client.send(message.encode('utf-8'))  # 发送注册信息
+            response = self.Client.recv(1024).decode()
+            print('Received response: {response}')
+            tkinter.messagebox.showinfo("info", response)
             self.Client.close()  # 发完关闭
+
         except:
             tkinter.messagebox.showerror("错误", "服务器无法连接")
 
@@ -142,21 +150,22 @@ class Client_GUI():  # 客户端GUI
         self.ServerIP = self.Server_entry.get()  # 获取server ip
         self.Client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # 初始化
         try:
-            self.Client.connect((self.ServerIP, self.port))  # socket连接服务器
-            self.name = self.username_entry.get()  # 获取登录的用户名
-            self.password = self.password_entry.get()  # 获取登录的密码
+            self.Client.connect(("127.0.0.1", self.port))  # socket连接服务器
+            print("客户端连接服务器成功")
+            self.name = self.UserName_entry.get()  # 获取登录的用户名
+            self.password = self.UserPassword_entry.get()  # 获取登录的密码
+            print(f'您的用户名{self.name} 密码{self.password}')
             way = 'login'  # 登录信息
             message = Messages.Message(way=way, Value=self.name + '\t' + self.password).Information()  # 构造登录信息
             self.Client.send(message.encode('utf-8'))  # 发送登录信息
             receiveText = self.Client.recv(1024).decode()
-            self.message_text["stat"] = "normal"
-            self.message_text.insert("end", receiveText + "\n", 'blue-color')
-            self.message_text["stat"] = "disable"
+            print(receiveText)
             splitedText = receiveText.split(" ")
-            if splitedText[2] == "登陆成功":
-                self.Login_button["state"] = "disabled"
+            if splitedText[2] == "登录成功":
+                tkinter.messagebox.showinfo("成功","登录成功！")
                 _thread.start_new_thread(self.AcceptMessage, (self.Client,))
             else:
+                tkinter.messagebox.showerror("错误", splitedText[2])
                 self.Client.close()
         except:
             tkinter.messagebox.showerror("错误", "服务器无法连接")
@@ -165,25 +174,74 @@ class Client_GUI():  # 客户端GUI
 
     def SendMessage(self, event=None):  # 发送消息
         try:
-            if self.var.get() == 0:  # 没有选择私聊
-                information = 'public' + '\t' + self.Message_entry.get()  # 组装information
+            if self.var.get() == 0:  # 没有选择私聊-即选择公聊
+                information = 'public' + '\t' + self.InputMessage_entry.get()  # 组装information
+                print(information)
                 self.Client.send(information.encode('utf-8'))  # 发送
             else:
-                if self.selectUser == None:  # 没有选用户
+                if self.selectUser is None:  # 没有选用户
                     tkinter.messagebox.showinfo("提示", "你还没有私聊对象!!!")
                     return 0
                 else:
-                    information = 'private\t' + self.selectUser + '\t' + self.Message_entry.get()  # 组装私聊information
+                    information = 'private\t' + self.selectUser + '\t' + self.InputMessage_entry.get()  # 组装私聊information
                     self.Client.send(information.encode('utf-8'))  # 发送
         except:
             tkinter.messagebox.showinfo("提示", "你还没有登陆请重新登陆!!!")
-        self.Message_entry.delete(0, tkinter.END)  # 清空信息发布窗口
+        self.InputMessage_entry.delete(0, tkinter.END)  # 清空信息发布窗口
 
-    def AcceptMessage(self):  # 请补充接收消息
+    def AcceptMessage(self, client):  # 请补充接收消息
         print("用户消息接受")
+        # 读取所有已注册用户名单，并以离线形式显示
+        allUsersString = client.recv(1024).decode()
+        splitedAllUsers = allUsersString.split(",")
+        for i in splitedAllUsers:
+            # problem
+            self.User_Group.insert("", "end", iid=i, values=(i, "离线"))
+        # 显示在线用户
+        OnlineUsersString = client.recv(1024).decode()
+        splitedOnlineUsers = OnlineUsersString.split(",")
+        for i in splitedOnlineUsers:
+            self.User_Group.set(i, column="状态", value="在线")
+        while True:
+            receiveText = client.recv(1024).decode()
+            print("receiveText:" + receiveText)
+            data = receiveText.split("\t")
+            receive_type = data[0]
+            receive_data = data[1]
+
+            # admin
+            # 112222
+            # 接收到用户状态并改变
+            if receive_type == "Online":
+                self.Message_text["stat"] = "normal"
+                self.Message_text.insert("end", receiveText + "\n")
+                self.Message_text["stat"] = "disable"
+                print("Online")
+            elif receive_type == "Offline":
+                self.Message_text["stat"] = "normal"
+                self.Message_text.insert("end", receiveText + "\n")
+                self.Message_text["stat"] = "disable"
+                receiveText = receiveText.split(" ")
+                # self.User_Group.set(receiveText[3], column="状态", value="离线")
+
+                print("Offline是：", receiveText)
+
+            if receive_type == "public":
+                self.Message_text["stat"] = "normal"
+                self.Message_text.insert("end", receive_data + "\n", 'green-color')
+                self.Message_text["stat"] = "disable"
+
+            elif receive_type == "private":
+                self.Message_text["stat"] = "normal"
+                self.Message_text.insert("end", receive_data + "\n", 'green-color')
+                self.Message_text["stat"] = "disable"
+            elif receive_type == "file_request":
+                print("file_request")
 
     def SendFile(self, filename, IP):  # 发送文件
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # 类型: SOCK_STREAM (使用 TCP 传输控制协议)地址簇 : AF_INET (IPv4)
+        # 类型: SOCK_STREAM (使用 TCP 传输控制协议)
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # 创建 Socket 地址簇 : AF_INET (IPv4)
         ip_port = (IP, 6969)
         client.connect(ip_port)
         if os.path.isfile(filename):  # 判断文件存在

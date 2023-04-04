@@ -1,3 +1,4 @@
+import hashlib
 import sys
 import tkinter
 from tkinter import ttk
@@ -17,6 +18,8 @@ global Online
 
 class Server_GUI():  # 类，面向对象的过程
     def __init__(self, window):  # 变量初始化，self是类的变量，代表当前类
+        # 连接池
+        self.conn = None
         self.window = window
         self.Manage_window = tkinter.Tk()
         self.selectUser = None
@@ -142,6 +145,7 @@ class Server_GUI():  # 类，面向对象的过程
             self.UserManage.insert("", 'end', iid=u[0], values=(u[1], hash(u[2]), u[3]))  # 往管理用户的框里插入信息
 
     def start(self):  # 服务器启动程序
+        # 日志插入
         self.message_text.config(state='normal')  # 消息记录框先变成normal状态
         self.message_text.insert(tkinter.END, gettime() + ' 服务器启动中\n')  ##消息记录框里插入数据
         self.message_text.config(state='normal')  # 消息记录框先变成normal状态
@@ -151,16 +155,21 @@ class Server_GUI():  # 类，面向对象的过程
         self.Server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # 初始化
         self.Host = socket.gethostname()  # 得到当前的服务器名称
         self.Port = 9090
-        self.Server.bind((self.Host, self.Port))  # 绑定服务器和端口
+        # address=('',self.Port)
+        self.Server.bind(('', self.Port))  # 绑定服务器和端口
         self.Server.listen(10)  # 最大阻塞10个
+        print("本地服务器开启:", self.Host, self.Port)
         self.conn = sqlite3.connect('data.db',
                                     check_same_thread=False)  # 连接数据库sqllite是python自带的，前面import data.db 数据库的文件名称，che检查线程
         self.cur = self.conn.cursor()  # 数据库游标
-        self.cur.execute('''CREATE TABLE IF NOT EXISTS User(id INTEGER PRIMARY KEY,
-                                                                                    name TEXT,
-                                                                                    password TEXT,
-                                                                                    time TEXT)''')  # 初始化数据库，用户信息表，公聊私聊信息文件都未穿
-        self.startThread = self.AcceptConnect(self.message_text, self.UserGroup, self.cur, self.Server)  # 创建接收连接的线程
+        # self.cur.execute('''Delete TABLE User''')
+        self.cur.execute('''CREATE TABLE IF NOT EXISTS User(                        id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+                                                                                    name TEXT NOT NULL UNIQUE,
+                                                                                    password TEXT NOT NULL ,
+                                                                                    createTime TIMESTAMP Default (datetime('now', 'localtime')),
+                                                                                    lastOnlineTime TIMESTAMP )''')  # 初始化数据库，用户信息表，公聊私聊信息文件都未穿
+        self.startThread = self.AcceptConnect(self.message_text, self.UserGroup, self.cur, self.Server,
+                                              self.conn)  # 创建接收连接的线程
         self.message_text.config(state='normal')
         self.message_text.insert(tkinter.END, gettime() + ' 数据库连接成功\n')
         self.message_text.config(state='disabled')
@@ -171,7 +180,7 @@ class Server_GUI():  # 类，面向对象的过程
 
     # 创建接收用户请求的线程类
     class AcceptConnect(threading.Thread):  # 创建接收用户请求的线程，继承线程类
-        def __init__(self, text, User, cur, Server):
+        def __init__(self, text, User, cur, Server, conn):  # 初始化
             threading.Thread.__init__(self)
             self.threadID = 0
             self.name = 'Create_Thread'
@@ -179,11 +188,12 @@ class Server_GUI():  # 类，面向对象的过程
             self.User = User
             self.Server = Server
             self.cur = cur
+            self.conn = conn
             global Online  # 一个用户与相应连接的字典
             Online = {}
 
         def Message_Processing(self, Message):  # 消息处理
-            if Message.IsStateMessage():  # 如果是状态消息，发给所有人
+            if Message.IsStateMessage():  # 如果是状态消息，发给在线用户中的所有人
                 for i in Online.values():
                     i[0].send(Message.Information().encode('utf-8'))
             elif Message.IsChatMessage():  # 如果是聊天消息
@@ -192,7 +202,8 @@ class Server_GUI():  # 类，面向对象的过程
                         i[0].send(Message.Information().encode('utf-8'))
                 else:
                     value = Message.value.split('\t', 1)
-                    Online[value[0]][0].send(Message.value.encode('utf-8'))  # 发给指定对象
+
+                    Online[value[0]][0].send(Message.Information().encode('utf-8'))  # 发给指定对象
             elif Message.IsFilerequest:  # 如果文件请求
                 value = Message.value.split('\t', 1)
                 if Message.way == 'file_request':  # 给所有人发文件
@@ -212,13 +223,35 @@ class Server_GUI():  # 类，面向对象的过程
                 message = Messages.Message(c.recv(1024).decode())  # 收到消息后解码
                 way = message.way  # 消息类型
                 value = message.value.split('\t', 1)  # 分割
+                # 获取用户名密码
+                username = value[0]
+                password = value[1]
                 if way == 'registered':  # 如果消息类型是注册
                     Time = gettime()  # 获取
-                    self.cur.execute("INSERT INTO User values(?,?,?,?)",
-                                     (value[0], value[0], value[1], Time))  # 数据库装了吗，自带的
+                    # 长度判断
+                    if len(username) < 3 or len(password) < 5:
+                        print("长度错误")
+                        # 返回给客户端
+                        c.sendall((gettime() + " 账号密码长度不正确").encode("UTF-8"))
+                        continue
+
+                    # 加密密码
+                    encry_password = self.EncryPassword(password)
+                    # 插入数据
+                    try:
+                        self.cur.execute("INSERT INTO User(name,password) values(?,?)",
+                                         (username, encry_password))  # 数据库装了吗，自带的
+                        self.conn.commit()
+                    except:
+                        print("插入失败")
+                        c.sendall("用户名重复".encode("UTF-8"))
+                        c.close()
+                        continue
+                    c.sendall((gettime() + " 注册成功").encode("UTF-8"))
                     self.Text.config(state='normal')
                     self.Text.insert(tkinter.END, gettime() + ' ' + value[0] + ' 用户注册\n')  # 往框里写东西
                     self.Text.config(state='disabled')
+
                     c.close()  # 断掉连接对象
                 elif way == 'login':
                     # 请同学们补充用户登录及用户状态等相关代码
@@ -227,9 +260,32 @@ class Server_GUI():  # 类，面向对象的过程
                     # 在线用户名IP端口登录时间等信息，
                     # 其它功能请同学们自行考虑
 
+                    # 加密密码
+                    encry_password = self.EncryPassword(password)
+                    self.cur.execute("select * from User where name = ? and password = ?",
+                                     (username, encry_password))
+                    result = self.cur.fetchall()
+                    if len(result) == 0:
+                        print("无数据", result)
+                        c.sendall((gettime() + " 账号或密码错误").encode("UTF-8"))
+                        self.Text.config(state='normal')
+                        self.Text.insert(tkinter.END, gettime() + ' ' + username + ' 用户登陆失败\n')
+                        self.Text.config(state='disabled')
+                        continue
+                    else:
+                        print("数据为", result)
+                        c.sendall((gettime() + " 登录成功").encode("UTF-8"))
+                        # GUI插入
+                        self.Text.config(state='normal')
+                        self.Text.insert(tkinter.END, gettime() + ' ' + username + ' 用户登陆成功\n')
+                        self.Text.config(state='disabled')
+                        #
+                        # self.Message_Processing(Messages.Message(way='Online', Value=username))
+                    # 判断状态
+
                     try:
                         _thread.start_new_thread(self.AcceptMessage,
-                                                 (value[0], c))  # 为登录用户专门创建的线程，处理这个用户发来的消息，公聊私聊、每个用户独有的。
+                                                 (username, c))  # 为登录用户专门创建的线程，处理这个用户发来的消息，公聊私聊、每个用户独有的。
                     except:
                         self.Text.config(state='normal')
                         self.Text.insert(tkinter.END, gettime() + ' ' + value[0] + ' 用户无法登陆\n')
@@ -237,7 +293,34 @@ class Server_GUI():  # 类，面向对象的过程
                 else:
                     c.close()
 
-        def AcceptMessage(self, name, connection):  # 处理每个用户登录之后消息发送，接收，公聊，私聊，发文件请求的消息
+        def AcceptMessage(self, name, connection):  # 处理每个用户登录之后消息发送，接收，公聊，私聊，发文件请求的消息,每一个用户独享
+
+            # 向客户端发送所有已注册用户名单
+            # 查表
+            self.cur.execute("select name from User")
+            # 提交
+            self.conn.commit()
+            # 获取结果
+            result = self.cur.fetchall()
+            allUsersString = ""
+            for i in result:
+                allUsersString += (i[0] + ",")
+            allUsersString = allUsersString[0: -1]
+            connection.sendall(allUsersString.encode("UTF-8"))
+
+            print(result)
+
+            Online.update({name: (connection,)})
+            # 更新自己在线的数据
+            # self.Message_Processing(Messages.Message(way='Online', Value=name))
+
+            # 向客户端发送当前在线的用户名单
+            keyString = ""
+            for i in Online.keys():
+                keyString += (i + ",")
+            keyString = keyString[0:-1]
+            connection.sendall(keyString.encode("UTF-8"))
+
             while True:
                 try:
                     message = Messages.Message(connection.recv(1024).decode())  # 接收消息
@@ -270,12 +353,25 @@ class Server_GUI():  # 类，面向对象的过程
                 # 以下请补充对公聊、私聊、发送文件请求的的处理
                 if way == 'public':  # 公聊信息处理
                     print("处理公聊天")
+                    self.Message_Processing(Messages.Message(way=way, Value=value))
+
                 elif way == 'private':  # 私聊信息处理，需要考虑给私聊发送者和接受者双方发消息
                     print("处理私聊信息")
+                    self.Message_Processing(Messages.Message(way=way, Value=value))
+
                 elif message.IsFilerequest:  # 文件一对多发
-                    print()
+                    print("文件处理")
+                    self.Message_Processing(Messages.Message(way=way, Value=value))
+
             #####
 
+        def EncryPassword(self, password):  # 加密密码
+            SALE = password[:4]  # 设置盐值
+            print(str(password).join(SALE))
+            md_sale = hashlib.md5((str(password).join(SALE)).encode())  # MD5加盐加密方法二：将password整体插入SALE的每个元素之间
+            md5salepwd = md_sale.hexdigest()
+            print(md5salepwd)
+            return md5salepwd
 
 
 def gettime():  # 返回以可读字符串表示的当地时间
