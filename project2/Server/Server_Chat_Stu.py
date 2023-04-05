@@ -1,4 +1,5 @@
 import hashlib
+import json
 import sys
 import tkinter
 from tkinter import ttk
@@ -8,7 +9,6 @@ import time
 import threading
 import _thread
 
-import mysql
 
 from project2.Message import *
 import tkinter.messagebox
@@ -201,8 +201,11 @@ class Server_GUI():  # 类，面向对象的过程
                     for i in Online.values():
                         i[0].send(Message.Information().encode('utf-8'))
                 else:
+                    print("value:",Message.value)
                     value = Message.value.split('\t', 1)
-
+                    print("value",value)
+                    #
+                    print("Message:",Message.Information())
                     Online[value[0]][0].send(Message.Information().encode('utf-8'))  # 发给指定对象
             elif Message.IsFilerequest:  # 如果文件请求
                 value = Message.value.split('\t', 1)
@@ -236,7 +239,7 @@ class Server_GUI():  # 类，面向对象的过程
                         continue
 
                     # 加密密码
-                    encry_password = self.EncryPassword(password)
+                    encry_password = EncryPassword(password)
                     # 插入数据
                     try:
                         self.cur.execute("INSERT INTO User(name,password) values(?,?)",
@@ -261,7 +264,7 @@ class Server_GUI():  # 类，面向对象的过程
                     # 其它功能请同学们自行考虑
 
                     # 加密密码
-                    encry_password = self.EncryPassword(password)
+                    encry_password = EncryPassword(password)
                     self.cur.execute("select * from User where name = ? and password = ?",
                                      (username, encry_password))
                     result = self.cur.fetchall()
@@ -295,6 +298,7 @@ class Server_GUI():  # 类，面向对象的过程
 
         def AcceptMessage(self, name, connection):  # 处理每个用户登录之后消息发送，接收，公聊，私聊，发文件请求的消息,每一个用户独享
 
+            Online.update({name: (connection,)})
             # 向客户端发送所有已注册用户名单
             # 查表
             self.cur.execute("select name from User")
@@ -302,25 +306,20 @@ class Server_GUI():  # 类，面向对象的过程
             self.conn.commit()
             # 获取结果
             result = self.cur.fetchall()
-            allUsersString = ""
+            # 创建字典
+            usersDic = {}
+            # 分析在线用户数据
             for i in result:
-                allUsersString += (i[0] + ",")
-            allUsersString = allUsersString[0: -1]
-            connection.sendall(allUsersString.encode("UTF-8"))
-
-            print(result)
-
-            Online.update({name: (connection,)})
-            # 更新自己在线的数据
-            # self.Message_Processing(Messages.Message(way='Online', Value=name))
-
-            # 向客户端发送当前在线的用户名单
-            keyString = ""
-            for i in Online.keys():
-                keyString += (i + ",")
-            keyString = keyString[0:-1]
-            connection.sendall(keyString.encode("UTF-8"))
-
+                if i[0] in Online:
+                    usersDic[i[0]] = "在线"
+                else:
+                    usersDic[i[0]] = "离线"
+            print(usersDic)
+            json_data = json.dumps(usersDic)
+            connection.send(json_data.encode('utf-8'))
+            time.sleep(1)
+            # 发送上线消息
+            self.Message_Processing(Messages.Message(way="Online", Value=name))
             while True:
                 try:
                     message = Messages.Message(connection.recv(1024).decode())  # 接收消息
@@ -365,17 +364,18 @@ class Server_GUI():  # 类，面向对象的过程
 
             #####
 
-        def EncryPassword(self, password):  # 加密密码
-            SALE = password[:4]  # 设置盐值
-            print(str(password).join(SALE))
-            md_sale = hashlib.md5((str(password).join(SALE)).encode())  # MD5加盐加密方法二：将password整体插入SALE的每个元素之间
-            md5salepwd = md_sale.hexdigest()
-            print(md5salepwd)
-            return md5salepwd
-
 
 def gettime():  # 返回以可读字符串表示的当地时间
     return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+
+
+def EncryPassword(password):  # 加密密码
+    SALE = password[:4]  # 设置盐值
+    print(str(password).join(SALE))
+    md_sale = hashlib.md5((str(password).join(SALE)).encode())  # MD5加盐加密方法二：将password整体插入SALE的每个元素之间
+    md5salepwd = md_sale.hexdigest()
+    print(md5salepwd)
+    return md5salepwd
 
 
 window = tkinter.Tk()

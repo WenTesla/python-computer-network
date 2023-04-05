@@ -1,7 +1,6 @@
 import hashlib
+import json
 import os
-import threading
-import time
 import tkinter
 import tkinter.messagebox
 import socket
@@ -10,7 +9,6 @@ import _thread
 import sys
 from tkinter import ttk
 import tkinter.filedialog
-import mysql.connector
 
 
 class Client_GUI():  # 客户端GUI
@@ -76,7 +74,9 @@ class Client_GUI():  # 客户端GUI
         # 消息记录框
         self.Message_group = tkinter.LabelFrame(window, text='消息记录', padx=5, pady=5)
         self.Message_group.grid(column=0, row=1, columnspan=5)
-        self.Message_text = tkinter.Text(self.Message_group, width=50, height=20, stat='disable')
+        self.Message_text = tkinter.Text(self.Message_group, width=50, height=20)
+        self.Message_text.tag_config("private", foreground="red")
+        self.Message_text.tag_config("public", foreground="black")
         self.Message_text.pack()
         # 在线用户框（请补充）
         self.OnlineUser_frame = tkinter.LabelFrame(self.window, text="用户", padx=5, pady=5)
@@ -111,7 +111,13 @@ class Client_GUI():  # 客户端GUI
 
     def UserGroup_Click(self, event):  # 获取选择私聊用户名
         try:
-            self.selectUser = self.User_Group.selection()[0]
+            # self.selectUser = self.User_Group.selection()[0]
+            # print(self.User_Group.selection())
+            foc = self.User_Group.focus()
+            val = self.User_Group.set(foc)
+            print(val, type(val))
+            self.selectUser = val["用户名"]
+
         except:
             return 0
 
@@ -162,7 +168,8 @@ class Client_GUI():  # 客户端GUI
             print(receiveText)
             splitedText = receiveText.split(" ")
             if splitedText[2] == "登录成功":
-                tkinter.messagebox.showinfo("成功","登录成功！")
+                tkinter.messagebox.showinfo("成功", "登录成功！")
+                self.Login_button['state'] = tkinter.DISABLED
                 _thread.start_new_thread(self.AcceptMessage, (self.Client,))
             else:
                 tkinter.messagebox.showerror("错误", splitedText[2])
@@ -174,16 +181,22 @@ class Client_GUI():  # 客户端GUI
 
     def SendMessage(self, event=None):  # 发送消息
         try:
+            if len(self.InputMessage_entry.get()) == 0:
+                tkinter.messagebox.showinfo("提示", "消息为空")
+                return
             if self.var.get() == 0:  # 没有选择私聊-即选择公聊
                 information = 'public' + '\t' + self.InputMessage_entry.get()  # 组装information
-                print(information)
+                # print(information)
                 self.Client.send(information.encode('utf-8'))  # 发送
             else:
                 if self.selectUser is None:  # 没有选用户
                     tkinter.messagebox.showinfo("提示", "你还没有私聊对象!!!")
                     return 0
                 else:
-                    information = 'private\t' + self.selectUser + '\t' + self.InputMessage_entry.get()  # 组装私聊information
+                    information = 'private' + '\t' + self.selectUser + '\t' + self.InputMessage_entry.get()  # 组装私聊information
+                    print("你当前选择的对象为\n" + self.selectUser)
+                    # print(self.InputMessage_entry.get())
+                    # print(information)
                     self.Client.send(information.encode('utf-8'))  # 发送
         except:
             tkinter.messagebox.showinfo("提示", "你还没有登陆请重新登陆!!!")
@@ -191,17 +204,15 @@ class Client_GUI():  # 客户端GUI
 
     def AcceptMessage(self, client):  # 请补充接收消息
         print("用户消息接受")
-        # 读取所有已注册用户名单，并以离线形式显示
-        allUsersString = client.recv(1024).decode()
-        splitedAllUsers = allUsersString.split(",")
-        for i in splitedAllUsers:
-            # problem
-            self.User_Group.insert("", "end", iid=i, values=(i, "离线"))
-        # 显示在线用户
-        OnlineUsersString = client.recv(1024).decode()
-        splitedOnlineUsers = OnlineUsersString.split(",")
-        for i in splitedOnlineUsers:
-            self.User_Group.set(i, column="状态", value="在线")
+        msg = client.recv(1024).decode('utf-8')
+        print('收到的数据是: ', msg)
+        print('收到的数据类型是: ', type(msg))
+        usersDic = json.loads(msg)
+        print(usersDic)
+        for (key, value) in usersDic.items():
+            print('key: ', key, 'value: ', value)
+            self.User_Group.insert('', 'end',iid=key, values=[key, value])
+
         while True:
             receiveText = client.recv(1024).decode()
             print("receiveText:" + receiveText)
@@ -214,26 +225,28 @@ class Client_GUI():  # 客户端GUI
             # 接收到用户状态并改变
             if receive_type == "Online":
                 self.Message_text["stat"] = "normal"
-                self.Message_text.insert("end", receiveText + "\n")
+                self.Message_text.insert("end", receive_data + "用户已上线" + "\n")
                 self.Message_text["stat"] = "disable"
+                self.User_Group.set(receive_data, column="状态", value="在线")
                 print("Online")
             elif receive_type == "Offline":
                 self.Message_text["stat"] = "normal"
                 self.Message_text.insert("end", receiveText + "\n")
                 self.Message_text["stat"] = "disable"
-                receiveText = receiveText.split(" ")
-                # self.User_Group.set(receiveText[3], column="状态", value="离线")
+                receiveText = receiveText.split("\t")
+                self.User_Group.set(receive_data, column="状态", value="离线")
 
-                print("Offline是：", receiveText)
 
             if receive_type == "public":
                 self.Message_text["stat"] = "normal"
-                self.Message_text.insert("end", receive_data + "\n", 'green-color')
+                self.Message_text.insert("end", " • " + receive_data + "\n", 'green-color')
                 self.Message_text["stat"] = "disable"
 
             elif receive_type == "private":
                 self.Message_text["stat"] = "normal"
-                self.Message_text.insert("end", receive_data + "\n", 'green-color')
+                self.Message_text.insert("end", str(data[1]) + "\n", 'private')
+                self.Message_text.insert("end", " • " + str(data[2]) + "\n", 'private')
+
                 self.Message_text["stat"] = "disable"
             elif receive_type == "file_request":
                 print("file_request")
