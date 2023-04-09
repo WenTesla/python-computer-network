@@ -211,7 +211,7 @@ class Client_GUI():  # 客户端GUI
         print(usersDic)
         for (key, value) in usersDic.items():
             print('key: ', key, 'value: ', value)
-            self.User_Group.insert('', 'end',iid=key, values=[key, value])
+            self.User_Group.insert('', 'end', iid=key, values=[key, value])
 
         while True:
             receiveText = client.recv(1024).decode()
@@ -235,7 +235,6 @@ class Client_GUI():  # 客户端GUI
                 self.Message_text["stat"] = "disable"
                 receiveText = receiveText.split("\t")
                 self.User_Group.set(receive_data, column="状态", value="离线")
-
 
             if receive_type == "public":
                 self.Message_text["stat"] = "normal"
@@ -282,6 +281,24 @@ class Client_GUI():  # 客户端GUI
         client.close()
 
     def AcceptFile(self, filename):  # 接收文件
+        # conn, addr = self.server.accept()  # 文件接收连接
+        # file_size = int(conn.recv(1024).decode())  # 文件大小
+        # process_window = tkinter.Tk()  # 进度条
+        # # 下载进度条
+        # process_window.title('文件接收')
+        # process_window.geometry('200x60')
+        # process_window.resizable(width=False, height=False)
+        # process_window.tk.eval('package require Tix')  # 测试进度条组件是否可用
+        #
+        # processbar = tkinter.ttk.Progressbar(process_window, length=150)  # 定义进度条
+        # processbar.pack(pady=20)  # 加入进度条
+        # processbar['maximum'] = 100  # 进度条最大100
+        # _thread.start_new_thread(self.download, (filename, processbar, conn, file_size))  # 开启线程开始下载
+        # process_window.mainloop()
+
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.bind((socket.gethostname(), 6969))
+        self.server.listen(10)
         conn, addr = self.server.accept()  # 文件接收连接
         file_size = int(conn.recv(1024).decode())  # 文件大小
         process_window = tkinter.Tk()  # 进度条
@@ -294,9 +311,13 @@ class Client_GUI():  # 客户端GUI
         processbar = tkinter.ttk.Progressbar(process_window, length=150)  # 定义进度条
         processbar.pack(pady=20)  # 加入进度条
         processbar['maximum'] = 100  # 进度条最大100
-        _thread.start_new_thread(self.download, (filename, processbar, conn, file_size))  # 开启线程开始下载
+        processbar["value"] = 0
+        speedLabel = tkinter.Label(process_window)
+        speedLabel.pack()
+        startTime = time.time()
+        _thread.start_new_thread(self.download, (
+        filename, process_window, processbar, speedLabel, conn, file_size, startTime))  # 开启线程开始下载
         process_window.mainloop()
-
     def download(self, filename, processbar, conn, file_size):  # 请补充下载文件
 
         print("下载文件")

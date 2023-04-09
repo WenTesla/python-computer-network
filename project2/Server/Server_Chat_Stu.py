@@ -9,7 +9,6 @@ import time
 import threading
 import _thread
 
-
 from project2.Message import *
 import tkinter.messagebox
 
@@ -19,6 +18,10 @@ global Online
 class Server_GUI():  # 类，面向对象的过程
     def __init__(self, window):  # 变量初始化，self是类的变量，代表当前类
         # 连接池
+        self.UserGroup = None
+        self.User_Frame = None
+        self.message_text = None
+        self.message_group = None
         self.conn = None
         self.window = window
         self.Manage_window = tkinter.Tk()
@@ -34,7 +37,7 @@ class Server_GUI():  # 类，面向对象的过程
         # 消息框
         self.message_group = tkinter.LabelFrame(self.window, text='消息记录', padx=5, pady=5)
         self.message_group.grid(column=0, row=0, columnspan=5)
-        self.message_text = tkinter.Text(self.message_group, width=37, height=21, stat='disabled')
+        self.message_text = tkinter.Text(self.message_group, width=37, height=21)
         self.message_text.pack()
         # 用户管理框
         self.User_Frame = tkinter.Frame(self.window)
@@ -42,15 +45,16 @@ class Server_GUI():  # 类，面向对象的过程
         self.UserGroup = ttk.Treeview(self.User_Frame, height=14, show='headings')
         self.UserGroup.pack()
         self.UserGroup["columns"] = ('用户名', 'IP', '端口', '登陆时间')
-        self.UserGroup.column('用户名', width=70)
+        self.UserGroup.column('用户名', width=50)
         self.UserGroup.column('IP', width=60)
-        self.UserGroup.column('端口', width=60)
-        self.UserGroup.column('登陆时间', width=70)
+        self.UserGroup.column('端口', width=40)
+        self.UserGroup.column('登陆时间', width=110)
         self.UserGroup.heading('用户名', text='用户名')
         self.UserGroup.heading('IP', text='IP')
         self.UserGroup.heading('端口', text='端口')
         self.UserGroup.heading('登陆时间', text='登陆时间')
         self.UserGroup.bind('<ButtonRelease-1>', self.UserGroup_Click)
+
         # 鼠标右键菜单
         self.menubar = tkinter.Menu(self.window)
         self.menubar.add_command(label='强制下线', command=self.User_Offline)
@@ -98,6 +102,7 @@ class Server_GUI():  # 类，面向对象的过程
     def UserGroup_Click(self, e):  # 点击获取右边在线用户的名称
         try:
             self.delete_iid = self.UserGroup.selection()[0]
+            print(self.delete_iid)
         except:
             return 0
 
@@ -189,6 +194,7 @@ class Server_GUI():  # 类，面向对象的过程
             self.Server = Server
             self.cur = cur
             self.conn = conn
+
             global Online  # 一个用户与相应连接的字典
             Online = {}
 
@@ -201,11 +207,11 @@ class Server_GUI():  # 类，面向对象的过程
                     for i in Online.values():
                         i[0].send(Message.Information().encode('utf-8'))
                 else:
-                    print("value:",Message.value)
+                    print("value:", Message.value)
                     value = Message.value.split('\t', 1)
-                    print("value",value)
+                    print("value", value)
                     #
-                    print("Message:",Message.Information())
+                    print("Message:", Message.Information())
                     Online[value[0]][0].send(Message.Information().encode('utf-8'))  # 发给指定对象
             elif Message.IsFilerequest:  # 如果文件请求
                 value = Message.value.split('\t', 1)
@@ -282,7 +288,10 @@ class Server_GUI():  # 类，面向对象的过程
                         self.Text.config(state='normal')
                         self.Text.insert(tkinter.END, gettime() + ' ' + username + ' 用户登陆成功\n')
                         self.Text.config(state='disabled')
-                        #
+                        # 右侧GUI插入
+                        self.User.insert('', 'end', iid=username, values=[username, addr[0], addr[1], gettime()])
+                        # self.UserGroup.insert('', 'end', iid=1, values=[1, 2, 3])
+
                         # self.Message_Processing(Messages.Message(way='Online', Value=username))
                     # 判断状态
 
