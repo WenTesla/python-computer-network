@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import time
 import tkinter
 import tkinter.messagebox
 import socket
@@ -15,6 +16,7 @@ class Client_GUI():  # 客户端GUI
     def __init__(self, window):  # 初始化客户端
 
         # 声明GUI组件
+        self.filename = None
         self.OnlineUser_text = None
         self.PrivateChat_bool = None
         self.OnlineUser_frame = None
@@ -65,8 +67,9 @@ class Client_GUI():  # 客户端GUI
         self.Server_label.grid(column=4, row=0)
         self.Server_entry = tkinter.Entry(self.window, bd=3, width=10)
         self.Server_entry.grid(column=5, row=0, columnspan=1)
+        # self.Server_entry.insert()
         # 登录按钮
-        self.Login_button = tkinter.Button(self.window, text='登陆', font=('SimHei', 12), command=self.login)
+        self.Login_button = tkinter.Button(self.window, text='登录', font=('SimHei', 12), command=self.login)
         self.Login_button.grid(column=6, row=0)
         # 注册按钮（请补充代码）
         self.Register_button = tkinter.Button(self.window, text='注册', font=('SimHei', 12), command=self.registered)
@@ -104,7 +107,7 @@ class Client_GUI():  # 客户端GUI
         self.ChatSendMessage_button.grid(column=6, row=2)
         # 发送文件按钮（请补充）
         self.ChatSendFile_button = tkinter.Button(self.window, text='发送文件', font=('SimHei', 12),
-                                                  command=self.SendFile)
+                                                  command=self.file)
         self.ChatSendFile_button.grid(column=7, row=2)
         # 数值初始化
         # self.Server_entry.insert(tkinter.END, socket.gethostbyname(socket.gethostname()))
@@ -122,10 +125,12 @@ class Client_GUI():  # 客户端GUI
             return 0
 
     def file(self):  # 发送文件请求
-        self.filename = tkinter.filedialog.askopenfilename()  # 打开文件管理器，获取文件名
-        (_, filename) = os.path.split(self.filename)  # 上面获取的是绝对路径，只截取文件名
+        filename = tkinter.filedialog.askopenfilename()  # 打开文件管理器，获取文件名
+        (_, filename) = os.path.split(filename)  # 上面获取的是绝对路径，只截取文件名
+        print(self.UserName_entry.get() + '\t' + filename)
         messages = Messages.Message(way='file_request',
                                     Value=self.UserName_entry.get() + '\t' + filename)  # 构造告诉服务器自己要发文件的消息
+
         try:
             self.Client.send(messages.Information().encode('utf-8'))  # 给服务器发送要发文件的消息
         except:
@@ -203,19 +208,19 @@ class Client_GUI():  # 客户端GUI
         self.InputMessage_entry.delete(0, tkinter.END)  # 清空信息发布窗口
 
     def AcceptMessage(self, client):  # 请补充接收消息
-        print("用户消息接受")
+        # print("用户消息接受")
         msg = client.recv(1024).decode('utf-8')
         print('收到的数据是: ', msg)
-        print('收到的数据类型是: ', type(msg))
+        # print('收到的数据类型是: ', type(msg))
         usersDic = json.loads(msg)
-        print(usersDic)
+        # print(usersDic)
         for (key, value) in usersDic.items():
-            print('key: ', key, 'value: ', value)
+            # print('key: ', key, 'value: ', value)
             self.User_Group.insert('', 'end', iid=key, values=[key, value])
 
         while True:
             receiveText = client.recv(1024).decode()
-            print("receiveText:" + receiveText)
+            print("receiveText:\n" + receiveText)
             data = receiveText.split("\t")
             receive_type = data[0]
             receive_data = data[1]
@@ -228,33 +233,76 @@ class Client_GUI():  # 客户端GUI
                 self.Message_text.insert("end", receive_data + "用户已上线" + "\n")
                 self.Message_text["stat"] = "disable"
                 self.User_Group.set(receive_data, column="状态", value="在线")
-                print("Online")
             elif receive_type == "Offline":
                 self.Message_text["stat"] = "normal"
                 self.Message_text.insert("end", receiveText + "\n")
                 self.Message_text["stat"] = "disable"
-                receiveText = receiveText.split("\t")
                 self.User_Group.set(receive_data, column="状态", value="离线")
-
+            # 接收到聊天信息
             if receive_type == "public":
                 self.Message_text["stat"] = "normal"
                 self.Message_text.insert("end", " • " + receive_data + "\n", 'green-color')
                 self.Message_text["stat"] = "disable"
-
             elif receive_type == "private":
                 self.Message_text["stat"] = "normal"
-                self.Message_text.insert("end", str(data[1]) + "\n", 'private')
+                self.Message_text.insert("end", " " + str(data[1]) + "\n", 'private')
                 self.Message_text.insert("end", " • " + str(data[2]) + "\n", 'private')
-
                 self.Message_text["stat"] = "disable"
+            # 发送文件
+            if receive_type == "IP_port":
+                print("IP_port")
+                # receiveText = receiveText.split("\t")
+                # 用绝对路径作为参数创建发送线程
+                print(self.filename, receiveText[2])
+                # filename IP
+                _thread.start_new_thread(self.SendFile, ("C:\\Users\\WenTe\\Documents\\1.txt", "192.168.1.101"))
+
+            # 接收到文件发送请求
             elif receive_type == "file_request":
-                print("file_request")
+                result = tkinter.messagebox.askokcancel(title="接收确认",
+                                                        message="确认接收来自" + receive_data
+                                                                + "的“" + receiveText[2] + "”文件吗?")
+                self.Message_text["stat"] = "normal"
+                self.Message_text.insert("end", receive_data + "发送文件" + "\n")
+                self.Message_text["stat"] = "disable"
+                # 接受
+                if result:
+                    fileName = tkinter.filedialog.asksaveasfilename()
+                    _thread.start_new_thread(self.AcceptFile, (fileName,))
+                    # 自己的id yes/no filename ip
+                    messages = Messages.Message(way='IP_port',
+                                                Value=self.UserName_entry.get() + '\t' + "yes" + '\t' + fileName + '\t' + socket.gethostbyname(
+                                                    socket.gethostname()))
+                    print(messages.Information())
+                    self.Client.sendall(messages.Information().encode("UTF-8"))
+                else:
+                    self.Message_text["stat"] = "normal"
+                    self.Message_text.insert("end", receive_data + "拒绝文件发送" + "\n")
+                    self.Message_text["stat"] = "disable"
+                    messages = Messages.Message(way='IP_port',
+                                                Value="no" + '\t')
+                    print(messages.Information())
+                    self.Client.sendall(messages.Information().encode("UTF-8"))
+
+    def file(self):  # 发送文件请求
+        self.filename = tkinter.filedialog.askopenfilename()  # 打开文件管理器，获取文件名
+        print("file中的:", self.filename)
+        (_, filename) = os.path.split(self.filename)  # 上面获取的是绝对路径，只截取文件名
+        messages = Messages.Message(way='file_request',
+                                    Value=self.UserName_entry.get() + '\t' + filename)  # 构造告诉服务器自己要发文件的消息
+
+        try:
+            self.Client.send(messages.Information().encode('utf-8'))  # 给服务器发送要发文件的消息
+        except:
+            tkinter.messagebox.showinfo("提示", "你还没有登陆请重新登陆!!!")
 
     def SendFile(self, filename, IP):  # 发送文件
         # 类型: SOCK_STREAM (使用 TCP 传输控制协议)地址簇 : AF_INET (IPv4)
         # 类型: SOCK_STREAM (使用 TCP 传输控制协议)
+        print("sendFile:", filename, IP)
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # 创建 Socket 地址簇 : AF_INET (IPv4)
         ip_port = (IP, 6969)
+
         client.connect(ip_port)
         if os.path.isfile(filename):  # 判断文件存在
 
@@ -296,10 +344,12 @@ class Client_GUI():  # 客户端GUI
         # _thread.start_new_thread(self.download, (filename, processbar, conn, file_size))  # 开启线程开始下载
         # process_window.mainloop()
 
+        print("AcceptFile")
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((socket.gethostname(), 6969))
         self.server.listen(10)
         conn, addr = self.server.accept()  # 文件接收连接
+        print(conn)
         file_size = int(conn.recv(1024).decode())  # 文件大小
         process_window = tkinter.Tk()  # 进度条
         # 下载进度条
@@ -316,11 +366,42 @@ class Client_GUI():  # 客户端GUI
         speedLabel.pack()
         startTime = time.time()
         _thread.start_new_thread(self.download, (
-        filename, process_window, processbar, speedLabel, conn, file_size, startTime))  # 开启线程开始下载
+            filename, process_window, processbar, speedLabel, conn, file_size, startTime))  # 开启线程开始下载
         process_window.mainloop()
-    def download(self, filename, processbar, conn, file_size):  # 请补充下载文件
 
-        print("下载文件")
+    def download(self, filename, process_window, processbar, speedLabel, conn, file_size, startTime):  # 请补充下载文件
+        print("download")
+        conn.send("StartFlag".encode("UTF-8"))
+        fileToWrite = open(filename, "wb")
+        total = 0
+        lastTotal = 0
+        startTime = startTime
+        lastTime = startTime
+        speed = 0
+        speedDisplayFlag = 1
+
+        while True:
+            data = conn.recv(1024)
+            total += len(data)
+            if speedDisplayFlag % 1000 == 0:
+                totalGap = total - lastTotal
+                lastTotal = total
+            fileToWrite.write(data)
+            if speedDisplayFlag % 1000 == 0:
+                timeNow = time.time()
+                timeGap = timeNow - lastTime
+                lastTime = timeNow
+                speed = float(totalGap) / float(timeGap) / 1024.0
+                speedLabel["text"] = ("传输速度：" + str(speed)[0:8] + "KB/s")
+            processbar["value"] = (float(total) / float(file_size)) * 100
+            process_window.update()
+            speedDisplayFlag += 1
+            if total >= file_size:
+                break
+        if speedDisplayFlag < 1000:
+            speedLabel["text"] = "传输速度：" + str(float(total) / 1024.0)[0:8] + "KB/s"
+        tkinter.messagebox.showinfo(message="文件接收完成")
+        conn.close()
 
 
 window = tkinter.Tk()

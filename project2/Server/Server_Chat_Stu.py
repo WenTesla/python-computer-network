@@ -207,21 +207,38 @@ class Server_GUI():  # 类，面向对象的过程
                     for i in Online.values():
                         i[0].send(Message.Information().encode('utf-8'))
                 else:
-                    print("value:", Message.value)
+                    # print("value:", Message.value)
                     value = Message.value.split('\t', 1)
-                    print("value", value)
+                    # print("value", value)
                     #
-                    print("Message:", Message.Information())
+                    # print("Message:", Message.Information())
                     Online[value[0]][0].send(Message.Information().encode('utf-8'))  # 发给指定对象
             elif Message.IsFilerequest:  # 如果文件请求
                 value = Message.value.split('\t', 1)
+                # print("value\n"+value)
                 if Message.way == 'file_request':  # 给所有人发文件
+                    print("给所有人发文件")
                     for i in Online.keys():
                         if i != value[0]:
                             Online[i][0].send(Message.Information().encode('utf-8'))
                 else:  # 处理对方是接收还是拒绝的消息
-                    value = Message.value.split('\t', 1)
-                    Online[value[0]][0].send(Message.Information().encode('utf-8'))
+                    # value = Message.value.split('\t', 1)
+                    # print(value)
+                    # Online[value[0]][0].send(("IP_port" + "\t" + value[3]
+                    #                           + "\t" + value[2]).encode('utf-8'))
+                    # print("处理对方是接收还是拒绝的消息")
+                    print(Message.value)
+                    value_split = Message.value.split('\t')
+                    print(value_split)
+                    if value_split[1] == "yes":
+                        # 处理发送 发送给客户端
+                        Online[value[0]][0].send(("IP_port" + "\t" + value_split[2]).encode('utf-8'))
+                        print("发送给客户端的:\n", "IP_port" + '\t' + value_split[2])
+                        print("接受")
+                    elif value_split[1] == "no":
+                        print("拒绝")
+                    else:
+                        print("异常")
 
         def run(self):  # 执行接收用户请求线程
             while True:
@@ -275,14 +292,14 @@ class Server_GUI():  # 类，面向对象的过程
                                      (username, encry_password))
                     result = self.cur.fetchall()
                     if len(result) == 0:
-                        print("无数据", result)
+                        # print("无数据", result)
                         c.sendall((gettime() + " 账号或密码错误").encode("UTF-8"))
                         self.Text.config(state='normal')
                         self.Text.insert(tkinter.END, gettime() + ' ' + username + ' 用户登陆失败\n')
                         self.Text.config(state='disabled')
                         continue
                     else:
-                        print("数据为", result)
+                        # print("数据为", result)
                         c.sendall((gettime() + " 登录成功").encode("UTF-8"))
                         # GUI插入
                         self.Text.config(state='normal')
@@ -323,7 +340,7 @@ class Server_GUI():  # 类，面向对象的过程
                     usersDic[i[0]] = "在线"
                 else:
                     usersDic[i[0]] = "离线"
-            print(usersDic)
+            # print(usersDic)
             json_data = json.dumps(usersDic)
             connection.send(json_data.encode('utf-8'))
             time.sleep(1)
@@ -371,8 +388,6 @@ class Server_GUI():  # 类，面向对象的过程
                     print("文件处理")
                     self.Message_Processing(Messages.Message(way=way, Value=value))
 
-            #####
-
 
 def gettime():  # 返回以可读字符串表示的当地时间
     return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
@@ -380,10 +395,10 @@ def gettime():  # 返回以可读字符串表示的当地时间
 
 def EncryPassword(password):  # 加密密码
     SALE = password[:4]  # 设置盐值
-    print(str(password).join(SALE))
+    # print(str(password).join(SALE))
     md_sale = hashlib.md5((str(password).join(SALE)).encode())  # MD5加盐加密方法二：将password整体插入SALE的每个元素之间
     md5salepwd = md_sale.hexdigest()
-    print(md5salepwd)
+    # print(md5salepwd)
     return md5salepwd
 
 
