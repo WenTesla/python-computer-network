@@ -7,7 +7,7 @@ class Message():  # 处理消息的格式，状态消息
 
     _state = ['Online', 'Offline']  # 私有变量，外部无法访问
     _Operation = ['registered', 'Login']
-    _Chat = ['public', 'private']
+    _Chat = ['public', 'private', 'history']
     _File = ['file_request', 'IP_port']
 
     # 初始化

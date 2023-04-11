@@ -240,7 +240,6 @@ class Client_GUI():  # 客户端GUI
         usersDic = json.loads(msg)
         # print(usersDic)
         for (key, value) in usersDic.items():
-            # print('key: ', key, 'value: ', value)
             self.User_Group.insert('', 'end', iid=key, values=[key, value])
 
         while True:
@@ -249,6 +248,8 @@ class Client_GUI():  # 客户端GUI
             data = receiveText.split("\t")
             receive_type = data[0]
             receive_data = data[1]
+            receive_text_split = receiveText.split("\t", 1)
+            print("receive_text_split", receive_text_split)
             # admin
             # 112222
             # 接收到用户状态并改变
@@ -272,6 +273,12 @@ class Client_GUI():  # 客户端GUI
                 self.Message_text.insert("end", " " + str(data[1]) + "\n", 'private')
                 self.Message_text.insert("end", " • " + str(data[2]) + "\n", 'private')
                 self.Message_text["stat"] = "disable"
+            elif receive_type == "history":
+                print("history！！")
+                self.Message_text["stat"] = "normal"
+                self.Message_text.insert("end", "历史消息: " + str(receive_text_split[1]) + '\n', 'green-color')
+                self.Message_text["stat"] = "disable"
+
             # 发送文件
             if receive_type == "IP_port":
                 print("IP_port")

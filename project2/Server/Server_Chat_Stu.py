@@ -14,6 +14,8 @@ import tkinter.messagebox
 
 global Online
 
+global History
+
 
 class Server_GUI():  # 类，面向对象的过程
     def __init__(self, window):  # 变量初始化，self是类的变量，代表当前类
@@ -27,6 +29,8 @@ class Server_GUI():  # 类，面向对象的过程
         self.Manage_window = tkinter.Tk()
         self.selectUser = None
         self.delete_iid = None  # 选择用户限定已成空
+        global History
+        History = []
 
     def set_init_window(self):  # 加入控件窗口
         self.window.title('服务器')
@@ -94,6 +98,8 @@ class Server_GUI():  # 类，面向对象的过程
                                            command=self.deleteUser)
         self.deleteButton.grid(column=6, row=1)
         self.ManageButton.config(state='disabled')
+
+        # global History = []
 
     def User_Offline(self):  # 强制踢下线
         Online[self.delete_iid][0].close()  # online是字典
@@ -204,6 +210,13 @@ class Server_GUI():  # 类，面向对象的过程
                 if Message.way == 'public':  # 如果是公聊，发给所有人
                     for i in Online.values():
                         i[0].send(Message.Information().encode('utf-8'))
+                elif Message.way == 'history':  # 如果是历史公聊消息
+                    value = Message.value.split('\t')
+                    print(value)
+                    for i in Online.keys():
+                        if i != value[1]:
+                            Online[i][0].send(Message.Information().encode('utf-8'))
+
                 else:
                     # print("value:", Message.value)
                     value = Message.value.split('\t', 1)
@@ -211,6 +224,7 @@ class Server_GUI():  # 类，面向对象的过程
                     #
                     # print("Message:", Message.Information())
                     Online[value[0]][0].send(Message.Information().encode('utf-8'))  # 发给指定对象
+
             elif Message.IsFilerequest:  # 如果文件请求
                 value = Message.value.split('\t', 1)
                 # print("value\n"+value)
@@ -286,6 +300,13 @@ class Server_GUI():  # 类，面向对象的过程
                     # 用户状态中需考虑用户的注册登录信息发送给所有服务器管理的用户，消息记录框中把所有注册登录信息展示出来，右边框中展示
                     # 在线用户名IP端口登录时间等信息，
                     # 其它功能请同学们自行考虑
+                    if password == "":
+                        c.sendall((gettime() + " 密码为空").encode("UTF-8"))
+                        continue
+                    # 判断用户状态
+                    if username in Online:
+                        c.sendall((gettime() + " 用户已经在其他设备登录").encode("UTF-8"))
+                        continue
 
                     # 加密密码
                     encry_password = EncryPassword(password)
@@ -293,14 +314,12 @@ class Server_GUI():  # 类，面向对象的过程
                                      (username, encry_password))
                     result = self.cur.fetchall()
                     if len(result) == 0:
-                        # print("无数据", result)
                         c.sendall((gettime() + " 账号或密码错误").encode("UTF-8"))
                         self.Text.config(state='normal')
                         self.Text.insert(tkinter.END, gettime() + ' ' + username + ' 用户登陆失败\n')
                         self.Text.config(state='disabled')
                         continue
                     else:
-                        # print("数据为", result)
                         c.sendall((gettime() + " 登录成功").encode("UTF-8"))
                         # GUI插入
                         self.Text.config(state='normal')
@@ -308,8 +327,6 @@ class Server_GUI():  # 类，面向对象的过程
                         self.Text.config(state='disabled')
                         # 右侧GUI插入
                         self.User.insert('', 'end', iid=username, values=[username, addr[0], addr[1], gettime()])
-                        # self.UserGroup.insert('', 'end', iid=1, values=[1, 2, 3])
-
                         # self.Message_Processing(Messages.Message(way='Online', Value=username))
                     # 判断状态
 
@@ -347,6 +364,13 @@ class Server_GUI():  # 类，面向对象的过程
             time.sleep(1)
             # 发送上线消息
             self.Message_Processing(Messages.Message(way="Online", Value=name))
+            time.sleep(1)
+            print("开始发送历史消息")
+            for item in History:
+                self.Message_Processing(Messages.Message(way="history", Value=item.value))
+                time.sleep(0.5)
+            print("历史数据发送完毕")
+
             while True:
                 try:
                     message = Messages.Message(connection.recv(1024).decode())  # 接收消息
@@ -384,6 +408,7 @@ class Server_GUI():  # 类，面向对象的过程
                     self.Text.config(state='normal')
                     self.Text.insert(tkinter.END, gettime() + ' ' + name + ' 发起公聊\n')
                     self.Text.config(state='disabled')
+                    insertChatMessage(Messages.Message(way=way, Value=gettime() + '\t' + name + '\t' + value))
 
 
                 elif way == 'private':  # 私聊信息处理，需要考虑给私聊发送者和接受者双方发消息
@@ -393,10 +418,10 @@ class Server_GUI():  # 类，面向对象的过程
                     self.Text.config(state='normal')
                     self.Text.insert(tkinter.END, gettime() + ' ' + name + ' 发起私聊\n')
                     self.Text.config(state='disabled')
-
+                    # insertChatMessage(Messages.Message(way=way, Value=value))
 
                 elif message.IsFilerequest:  # 文件一对多发
-                    print("文件处理")
+                    # print("文件处理")
                     self.Message_Processing(Messages.Message(way=way, Value=value))
                     # 插入信息
                     self.Text.config(state='normal')
@@ -416,7 +441,16 @@ def EncryPassword(password):  # 加密密码
     # print(md5salepwd)
     return md5salepwd
 
-# def insertChatMessage(value):
+
+def insertChatMessage(value):
+    print("插入")
+    History.append(value)
+    print(History)
+
+
+def queryChatMessage():
+    print("查询")
+    print(len(History))
 
 
 window = tkinter.Tk()
