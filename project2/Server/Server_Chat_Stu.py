@@ -443,9 +443,9 @@ def EncryPassword(password):  # 加密密码
 
 
 def insertChatMessage(value):
-    print("插入")
+    # print("插入")
     History.append(value)
-    print(History)
+    # print(History)
 
 
 def queryChatMessage():

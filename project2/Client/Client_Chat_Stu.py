@@ -60,8 +60,10 @@ class Client_GUI():  # 客户端GUI
         # 口令(请补充代码）
         self.UserPassword_label = tkinter.Label(self.window, text='口令:', font=('SimHei', 12))
         self.UserPassword_label.grid(column=2, row=0)
-        self.UserPassword_entry = tkinter.Entry(self.window, bd=3, width=10)
+        self.UserPassword_entry = tkinter.Entry(self.window, bd=3, width=10, show="*")
+
         self.UserPassword_entry.grid(column=3, row=0, columnspan=1)
+
         self.UserPassword_entry.insert(tkinter.END, "123456")
         # 服务器（请补充代码）
         self.Server_label = tkinter.Label(self.window, text='服务器:', font=('SimHei', 12))
@@ -278,6 +280,7 @@ class Client_GUI():  # 客户端GUI
                 self.Message_text["stat"] = "normal"
                 self.Message_text.insert("end", "历史消息: " + str(receive_text_split[1]) + '\n', 'green-color')
                 self.Message_text["stat"] = "disable"
+            # force offline
 
             # 发送文件
             if receive_type == "IP_port":
