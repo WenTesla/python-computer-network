@@ -62,6 +62,7 @@ class Client_GUI():  # 客户端GUI
         self.UserPassword_label.grid(column=2, row=0)
         self.UserPassword_entry = tkinter.Entry(self.window, bd=3, width=10)
         self.UserPassword_entry.grid(column=3, row=0, columnspan=1)
+        self.UserPassword_entry.insert(tkinter.END, "123456")
         # 服务器（请补充代码）
         self.Server_label = tkinter.Label(self.window, text='服务器:', font=('SimHei', 12))
         self.Server_label.grid(column=4, row=0)
@@ -94,7 +95,6 @@ class Client_GUI():  # 客户端GUI
         self.User_Group.bind('<ButtonRelease-1>', self.UserGroup_Click)  # 用于选择用户进行私聊
         self.User_Group.pack()
         # 插入数据
-        # self.User_Group.insert('', 'end', values=[1, 2])
         # 信息输入框（请补充）
         self.InputMessage_entry = tkinter.Entry(self.window, bd=4, width=50)
         self.InputMessage_entry.grid(column=0, row=2, columnspan=5)
@@ -110,7 +110,7 @@ class Client_GUI():  # 客户端GUI
                                                   command=self.file)
         self.ChatSendFile_button.grid(column=7, row=2)
         # 数值初始化
-        # self.Server_entry.insert(tkinter.END, socket.gethostbyname(socket.gethostname()))
+        self.Server_entry.insert(tkinter.END, "127.0.0.1")
 
     def UserGroup_Click(self, event):  # 获取选择私聊用户名
         try:
@@ -124,12 +124,24 @@ class Client_GUI():  # 客户端GUI
         except:
             return 0
 
+    # def file(self):  # 发送文件请求
+    #     filename = tkinter.filedialog.askopenfilename()  # 打开文件管理器，获取文件名
+    #     (_, filename) = os.path.split(filename)  # 上面获取的是绝对路径，只截取文件名
+    #     print(self.UserName_entry.get() + '\t' + filename)
+    #     messages = Messages.Message(way='file_request',
+    #                                 Value=self.UserName_entry.get() + '\t' + filename)  # 构造告诉服务器自己要发文件的消息
+    #
+    #     try:
+    #         self.Client.send(messages.Information().encode('utf-8'))  # 给服务器发送要发文件的消息
+    #     except:
+    #         tkinter.messagebox.showinfo("提示", "你还没有登陆请重新登陆!!!")
+
     def file(self):  # 发送文件请求
-        filename = tkinter.filedialog.askopenfilename()  # 打开文件管理器，获取文件名
-        (_, filename) = os.path.split(filename)  # 上面获取的是绝对路径，只截取文件名
-        print(self.UserName_entry.get() + '\t' + filename)
+        self.filename = tkinter.filedialog.askopenfilename()  # 打开文件管理器，获取文件名
+        print("file中的:", self.filename)
+        # (_, filename) = os.path.split(self.filename)  # 上面获取的是绝对路径，只截取文件名
         messages = Messages.Message(way='file_request',
-                                    Value=self.UserName_entry.get() + '\t' + filename)  # 构造告诉服务器自己要发文件的消息
+                                    Value=self.UserName_entry.get() + '\t' + self.filename)  # 构造告诉服务器自己要发文件的消息
 
         try:
             self.Client.send(messages.Information().encode('utf-8'))  # 给服务器发送要发文件的消息
@@ -146,6 +158,12 @@ class Client_GUI():  # 客户端GUI
             self.Client.connect(("127.0.0.1", self.port))  # socket连接服务器
             self.name = self.UserName_entry.get()  # 获取注册的用户名
             self.password = self.UserPassword_entry.get()  # 获取注册的密码
+            if self.name.isdigit():
+                tkinter.messagebox.showinfo("注册失败", "用户名不能为数字")
+                return
+            if self.name == "" or self.password == "":
+                tkinter.messagebox.showinfo("注册失败", "用户名或密码不能为空")
+                return
             way = 'registered'  # 注册信息
             message = Messages.Message(way=way, Value=self.name + '\t' + self.password).Information()  # 构造注册信息
             self.Client.send(message.encode('utf-8'))  # 发送注册信息
@@ -161,11 +179,17 @@ class Client_GUI():  # 客户端GUI
         self.ServerIP = self.Server_entry.get()  # 获取server ip
         self.Client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # 初始化
         try:
-            self.Client.connect(("127.0.0.1", self.port))  # socket连接服务器
+            self.Client.connect((self.Server_entry.get(), self.port))  # socket连接服务器
             print("客户端连接服务器成功")
             self.name = self.UserName_entry.get()  # 获取登录的用户名
             self.password = self.UserPassword_entry.get()  # 获取登录的密码
             print(f'您的用户名{self.name} 密码{self.password}')
+            if self.name.isdigit():
+                tkinter.messagebox.showinfo("登录失败", "用户名不能为数字")
+                return
+            if self.name == "" or self.password == "":
+                tkinter.messagebox.showinfo("登录失败", "用户名或密码不能为空")
+                return
             way = 'login'  # 登录信息
             message = Messages.Message(way=way, Value=self.name + '\t' + self.password).Information()  # 构造登录信息
             self.Client.send(message.encode('utf-8'))  # 发送登录信息
@@ -198,6 +222,7 @@ class Client_GUI():  # 客户端GUI
                     tkinter.messagebox.showinfo("提示", "你还没有私聊对象!!!")
                     return 0
                 else:
+
                     information = 'private' + '\t' + self.selectUser + '\t' + self.InputMessage_entry.get()  # 组装私聊information
                     print("你当前选择的对象为\n" + self.selectUser)
                     # print(self.InputMessage_entry.get())
@@ -224,7 +249,6 @@ class Client_GUI():  # 客户端GUI
             data = receiveText.split("\t")
             receive_type = data[0]
             receive_data = data[1]
-
             # admin
             # 112222
             # 接收到用户状态并改变
@@ -251,11 +275,13 @@ class Client_GUI():  # 客户端GUI
             # 发送文件
             if receive_type == "IP_port":
                 print("IP_port")
-                # receiveText = receiveText.split("\t")
+                # print(receive_data)
+
+                # print(receiveText[1])
                 # 用绝对路径作为参数创建发送线程
-                print(self.filename, receiveText[2])
+                print("self.name::", self.filename)
                 # filename IP
-                _thread.start_new_thread(self.SendFile, ("C:\\Users\\WenTe\\Documents\\1.txt", "192.168.1.101"))
+                _thread.start_new_thread(self.SendFile, (self.filename, receive_data))
 
             # 接收到文件发送请求
             elif receive_type == "file_request":
@@ -271,7 +297,7 @@ class Client_GUI():  # 客户端GUI
                     _thread.start_new_thread(self.AcceptFile, (fileName,))
                     # 自己的id yes/no filename ip
                     messages = Messages.Message(way='IP_port',
-                                                Value=self.UserName_entry.get() + '\t' + "yes" + '\t' + fileName + '\t' + socket.gethostbyname(
+                                                Value=receive_data + '\t' + "yes" + '\t' + fileName + '\t' + socket.gethostbyname(
                                                     socket.gethostname()))
                     print(messages.Information())
                     self.Client.sendall(messages.Information().encode("UTF-8"))
@@ -283,18 +309,6 @@ class Client_GUI():  # 客户端GUI
                                                 Value="no" + '\t')
                     print(messages.Information())
                     self.Client.sendall(messages.Information().encode("UTF-8"))
-
-    def file(self):  # 发送文件请求
-        self.filename = tkinter.filedialog.askopenfilename()  # 打开文件管理器，获取文件名
-        print("file中的:", self.filename)
-        (_, filename) = os.path.split(self.filename)  # 上面获取的是绝对路径，只截取文件名
-        messages = Messages.Message(way='file_request',
-                                    Value=self.UserName_entry.get() + '\t' + filename)  # 构造告诉服务器自己要发文件的消息
-
-        try:
-            self.Client.send(messages.Information().encode('utf-8'))  # 给服务器发送要发文件的消息
-        except:
-            tkinter.messagebox.showinfo("提示", "你还没有登陆请重新登陆!!!")
 
     def SendFile(self, filename, IP):  # 发送文件
         # 类型: SOCK_STREAM (使用 TCP 传输控制协议)地址簇 : AF_INET (IPv4)
@@ -401,6 +415,7 @@ class Client_GUI():  # 客户端GUI
         if speedDisplayFlag < 1000:
             speedLabel["text"] = "传输速度：" + str(float(total) / 1024.0)[0:8] + "KB/s"
         tkinter.messagebox.showinfo(message="文件接收完成")
+
         conn.close()
 
 

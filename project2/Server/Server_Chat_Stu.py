@@ -96,7 +96,6 @@ class Server_GUI():  # 类，面向对象的过程
         self.ManageButton.config(state='disabled')
 
     def User_Offline(self):  # 强制踢下线
-
         Online[self.delete_iid][0].close()  # online是字典
 
     def UserGroup_Click(self, e):  # 点击获取右边在线用户的名称
@@ -194,7 +193,6 @@ class Server_GUI():  # 类，面向对象的过程
             self.Server = Server
             self.cur = cur
             self.conn = conn
-
             global Online  # 一个用户与相应连接的字典
             Online = {}
 
@@ -232,11 +230,14 @@ class Server_GUI():  # 类，面向对象的过程
                     print(value_split)
                     if value_split[1] == "yes":
                         # 处理发送 发送给客户端
-                        Online[value[0]][0].send(("IP_port" + "\t" + value_split[2]).encode('utf-8'))
-                        print("发送给客户端的:\n", "IP_port" + '\t' + value_split[2])
+                        Online[value[0]][0].send(("IP_port" + "\t" + value_split[3]).encode('utf-8'))
+                        # print("发送给客户端的:\n", "IP_port" + '\t' + value_split[3])
+                        print("发送给客户端用户:", value[0])
+
                         print("接受")
                     elif value_split[1] == "no":
                         print("拒绝")
+
                     else:
                         print("异常")
 
@@ -377,16 +378,30 @@ class Server_GUI():  # 类，面向对象的过程
                 value = message.value
                 # 以下请补充对公聊、私聊、发送文件请求的的处理
                 if way == 'public':  # 公聊信息处理
-                    print("处理公聊天")
+                    # print("处理公聊天")
                     self.Message_Processing(Messages.Message(way=way, Value=value))
+                    # 插入信息
+                    self.Text.config(state='normal')
+                    self.Text.insert(tkinter.END, gettime() + ' ' + name + ' 发起公聊\n')
+                    self.Text.config(state='disabled')
+
 
                 elif way == 'private':  # 私聊信息处理，需要考虑给私聊发送者和接受者双方发消息
-                    print("处理私聊信息")
+                    # print("处理私聊信息")
                     self.Message_Processing(Messages.Message(way=way, Value=value))
+                    # 插入信息
+                    self.Text.config(state='normal')
+                    self.Text.insert(tkinter.END, gettime() + ' ' + name + ' 发起私聊\n')
+                    self.Text.config(state='disabled')
+
 
                 elif message.IsFilerequest:  # 文件一对多发
                     print("文件处理")
                     self.Message_Processing(Messages.Message(way=way, Value=value))
+                    # 插入信息
+                    self.Text.config(state='normal')
+                    self.Text.insert(tkinter.END, gettime() + ' ' + name + ' 发送文件\n')
+                    self.Text.config(state='disabled')
 
 
 def gettime():  # 返回以可读字符串表示的当地时间
@@ -400,6 +415,8 @@ def EncryPassword(password):  # 加密密码
     md5salepwd = md_sale.hexdigest()
     # print(md5salepwd)
     return md5salepwd
+
+# def insertChatMessage(value):
 
 
 window = tkinter.Tk()
